@@ -7,6 +7,8 @@ type Zone = {
   name: string;
   smoke: number;
   temperature: number;
+  humans: number;
+  pets: number;
 };
 
 type LogEvent = {
@@ -101,8 +103,8 @@ function formatTime(d: Date) {
 
 function App() {
   const [zones, setZones] = useState<Zone[]>([
-    { id: 1, name: "Zone 1", smoke: 0, temperature: 0 },
-    { id: 2, name: "Zone 2", smoke: 0, temperature: 0 },
+    { id: 1, name: "Zone 1", smoke: 0, temperature: 0, humans: 0, pets: 0 },
+    { id: 2, name: "Zone 2", smoke: 0, temperature: 0, humans: 0, pets: 0 },
   ]);
 
   const [events, setEvents] = useState<LogEvent[]>([]);
@@ -118,6 +120,7 @@ function App() {
   const [power, setPower] = useState<PowerState>("online");
   const powerTimerRef = useRef<number | undefined>(undefined);
   const [sprinklers, setSprinklers] = useState<Record<number, boolean>>({});
+  const [cameras, setCameras] = useState<Record<number, boolean>>({});
 
   const addEvent = (message: string, level: LogEvent["level"]) => {
     setEvents((prev) => {
@@ -232,6 +235,15 @@ function App() {
           addEvent(`${zone.name} sprinklers activated`, "INFO");
           return { ...s, [zone.id]: true };
         });
+        setCameras((c) => {
+          if (c[zone.id]) return c;
+          const occ =
+            zone.humans + zone.pets > 0
+              ? `${zone.humans} human${zone.humans === 1 ? "" : "s"}, ${zone.pets} pet${zone.pets === 1 ? "" : "s"} detected`
+              : "no occupants detected";
+          addEvent(`${zone.name} camera online — ${occ}`, "INFO");
+          return { ...c, [zone.id]: true };
+        });
       } else if (status === "WARNING") {
         addEvent(`${zone.name} WARNING`, "WARNING");
       } else {
@@ -242,6 +254,11 @@ function App() {
           if (!s[zone.id]) return s;
           addEvent(`${zone.name} sprinklers off`, "INFO");
           return { ...s, [zone.id]: false };
+        });
+        setCameras((c) => {
+          if (!c[zone.id]) return c;
+          addEvent(`${zone.name} camera offline`, "INFO");
+          return { ...c, [zone.id]: false };
         });
       }
     });
@@ -269,6 +286,12 @@ function App() {
     setSprinklers((s) => {
       if (Object.values(s).some(Boolean)) {
         addEvent("All sprinklers shut off", "INFO");
+      }
+      return {};
+    });
+    setCameras((c) => {
+      if (Object.values(c).some(Boolean)) {
+        addEvent("All cameras offline", "INFO");
       }
       return {};
     });
@@ -326,10 +349,34 @@ function App() {
       ? "border-amber-400/40"
       : "border-emerald-400/30";
 
-  const updateZone = (id: number, field: "smoke" | "temperature", v: number) => {
+  const updateZone = (
+    id: number,
+    field: "smoke" | "temperature" | "humans" | "pets",
+    v: number,
+  ) => {
     setZones((prev) =>
       prev.map((z) => (z.id === id ? { ...z, [field]: v } : z)),
     );
+  };
+
+  const adjustOccupant = (
+    zone: Zone,
+    field: "humans" | "pets",
+    delta: number,
+  ) => {
+    const next = Math.max(0, Math.min(20, zone[field] + delta));
+    updateZone(zone.id, field, next);
+  };
+
+  const toggleCamera = (zone: Zone) => {
+    setCameras((c) => {
+      const next = !c[zone.id];
+      addEvent(
+        `${zone.name} camera ${next ? "manually activated" : "manually turned off"}`,
+        "INFO",
+      );
+      return { ...c, [zone.id]: next };
+    });
   };
 
   const now = new Date();
@@ -646,6 +693,7 @@ function App() {
             const t = statusTheme(status);
             const isZoneAlert = status === "FIRE ALERT";
             const sprinklerOn = !!sprinklers[zone.id];
+            const cameraOn = !!cameras[zone.id];
             return (
               <div
                 key={zone.id}
@@ -792,6 +840,108 @@ function App() {
                     >
                       {sprinklerOn ? "Stop" : "Activate"}
                     </button>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    {(["humans", "pets"] as const).map((kind) => (
+                      <div
+                        key={kind}
+                        className="rounded-xl border border-white/10 bg-slate-900/40 px-3 py-2"
+                      >
+                        <div className="flex items-center justify-between mb-1.5">
+                          <div className="text-[10px] uppercase tracking-widest text-slate-400">
+                            {kind === "humans" ? "Humans" : "Pets"}
+                          </div>
+                          <div className="text-sm font-semibold text-slate-100">
+                            {zone[kind]}
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between gap-2">
+                          <button
+                            type="button"
+                            onClick={() => adjustOccupant(zone, kind, -1)}
+                            className="w-7 h-7 rounded-md bg-slate-700/60 hover:bg-slate-600/60 text-slate-100 text-base leading-none flex items-center justify-center"
+                            aria-label={`Decrease ${kind}`}
+                          >
+                            −
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => adjustOccupant(zone, kind, 1)}
+                            className="w-7 h-7 rounded-md bg-slate-700/60 hover:bg-slate-600/60 text-slate-100 text-base leading-none flex items-center justify-center"
+                            aria-label={`Increase ${kind}`}
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div
+                    className={`rounded-xl border px-3 py-2.5 transition-colors ${
+                      cameraOn
+                        ? "border-rose-400/40 bg-rose-500/5"
+                        : "border-white/10 bg-slate-900/40"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2.5">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className={`w-4 h-4 ${
+                            cameraOn ? "text-rose-300" : "text-slate-500"
+                          }`}
+                          aria-hidden="true"
+                        >
+                          <path d="M23 7l-7 5 7 5V7z" />
+                          <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+                        </svg>
+                        <div>
+                          <div className="text-[10px] uppercase tracking-widest text-slate-400">
+                            Rescue Camera
+                          </div>
+                          <div
+                            className={`text-sm font-semibold ${
+                              cameraOn ? "text-rose-200" : "text-slate-300"
+                            }`}
+                          >
+                            {cameraOn ? "Live" : "Standby"}
+                          </div>
+                        </div>
+                        {cameraOn && (
+                          <span className="ml-1 inline-flex items-center gap-1 text-[10px] uppercase tracking-widest text-rose-300 font-semibold">
+                            <span className="w-1.5 h-1.5 rounded-full bg-rose-400 fire-blink" />
+                            REC
+                          </span>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => toggleCamera(zone)}
+                        className={`text-[10px] uppercase tracking-widest font-semibold px-2.5 py-1 rounded-md transition-colors ${
+                          cameraOn
+                            ? "bg-rose-500/20 text-rose-200 hover:bg-rose-500/30"
+                            : "bg-slate-700/60 text-slate-200 hover:bg-slate-600/60"
+                        }`}
+                      >
+                        {cameraOn ? "Off" : "Activate"}
+                      </button>
+                    </div>
+                    {cameraOn && (
+                      <div className="mt-2 rounded-md bg-slate-950/60 border border-white/5 px-3 py-2 flex items-center justify-between text-xs">
+                        <span className="text-slate-400">Detected</span>
+                        <span className="font-semibold text-slate-100">
+                          {zone.humans} {zone.humans === 1 ? "human" : "humans"} · {zone.pets} {zone.pets === 1 ? "pet" : "pets"}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -970,6 +1120,55 @@ function App() {
                     </div>
                   </div>
                 )}
+
+                {(() => {
+                  const liveZones = zoneStatuses.filter(
+                    ({ zone, status }) =>
+                      status === "FIRE ALERT" && cameras[zone.id],
+                  );
+                  if (liveZones.length === 0) return null;
+                  const totalHumans = liveZones.reduce(
+                    (s, { zone }) => s + zone.humans,
+                    0,
+                  );
+                  const totalPets = liveZones.reduce(
+                    (s, { zone }) => s + zone.pets,
+                    0,
+                  );
+                  const anyone = totalHumans + totalPets > 0;
+                  return (
+                    <div className="mt-3 pt-3 border-t border-white/10">
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="text-[10px] uppercase tracking-widest text-slate-500">
+                          Rescue camera feed
+                        </div>
+                        <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-widest text-rose-300 font-semibold">
+                          <span className="w-1.5 h-1.5 rounded-full bg-rose-400 fire-blink" />
+                          LIVE
+                        </span>
+                      </div>
+                      <div
+                        className={`text-sm font-semibold ${
+                          anyone ? "text-amber-300" : "text-emerald-300"
+                        }`}
+                      >
+                        {anyone
+                          ? `${totalHumans} human${totalHumans === 1 ? "" : "s"} & ${totalPets} pet${totalPets === 1 ? "" : "s"} stuck inside`
+                          : "No occupants detected on camera"}
+                      </div>
+                      {anyone && (
+                        <ul className="mt-1.5 space-y-0.5 text-xs text-slate-400">
+                          {liveZones.map(({ zone }) => (
+                            <li key={zone.id}>
+                              <span className="text-slate-300">{zone.name}:</span>{" "}
+                              {zone.humans} human{zone.humans === 1 ? "" : "s"}, {zone.pets} pet{zone.pets === 1 ? "" : "s"}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
 
               <button
