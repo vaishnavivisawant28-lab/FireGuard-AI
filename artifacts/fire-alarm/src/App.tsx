@@ -13,8 +13,10 @@ type LogEvent = {
   id: number;
   time: Date;
   message: string;
-  level: Status | "INFO";
+  level: Status | "INFO" | "CALL";
 };
+
+type CallState = "idle" | "ringing" | "connected";
 
 function getStatus(smoke: number, temperature: number): Status {
   if (smoke > 70 || temperature > 60) return "FIRE ALERT";
@@ -29,6 +31,17 @@ const STATUS_RANK: Record<Status, number> = {
 };
 
 const MAX_EVENTS = 10;
+
+const DEFAULT_LOCATION = {
+  facility: "Building A — Riverside Industrial Park",
+  address: "1420 Harbor Way, Oakland, CA 94607",
+  coords: "37.7955° N, 122.2705° W",
+};
+
+const FIRE_DEPT = {
+  name: "Oakland Fire Safety Dept.",
+  number: "911",
+};
 
 function statusTheme(status: Status) {
   if (status === "FIRE ALERT") {
@@ -71,6 +84,8 @@ function logLevelStyle(level: LogEvent["level"]) {
     return { dot: "bg-amber-400", text: "text-amber-300" };
   if (level === "SAFE")
     return { dot: "bg-emerald-400", text: "text-emerald-300" };
+  if (level === "CALL")
+    return { dot: "bg-sky-400", text: "text-sky-300" };
   return { dot: "bg-slate-400", text: "text-slate-300" };
 }
 
@@ -92,6 +107,12 @@ function App() {
   const eventIdRef = useRef(0);
   const prevZoneStatusRef = useRef<Record<number, Status>>({});
   const initializedRef = useRef(false);
+
+  const [location, setLocation] = useState(DEFAULT_LOCATION);
+  const [editingLocation, setEditingLocation] = useState(false);
+  const [callState, setCallState] = useState<CallState>("idle");
+  const [callElapsed, setCallElapsed] = useState(0);
+  const callTimersRef = useRef<{ connect?: number; tick?: number }>({});
 
   const addEvent = (message: string, level: LogEvent["level"]) => {
     setEvents((prev) => {
@@ -125,6 +146,48 @@ function App() {
   const isAlert = overall === "FIRE ALERT";
   const isWarning = overall === "WARNING";
 
+  const clearCallTimers = () => {
+    if (callTimersRef.current.connect) {
+      window.clearTimeout(callTimersRef.current.connect);
+    }
+    if (callTimersRef.current.tick) {
+      window.clearInterval(callTimersRef.current.tick);
+    }
+    callTimersRef.current = {};
+  };
+
+  const placeCall = (reason: string) => {
+    clearCallTimers();
+    setCallState("ringing");
+    setCallElapsed(0);
+    addEvent(
+      `Calling ${FIRE_DEPT.name} (${FIRE_DEPT.number}) — ${reason}`,
+      "CALL",
+    );
+    callTimersRef.current.connect = window.setTimeout(() => {
+      setCallState("connected");
+      addEvent(`Dispatcher connected — location relayed`, "CALL");
+      callTimersRef.current.tick = window.setInterval(() => {
+        setCallElapsed((s) => s + 1);
+      }, 1000);
+    }, 3000);
+  };
+
+  const endCall = () => {
+    clearCallTimers();
+    if (callState !== "idle") {
+      addEvent("Call ended", "CALL");
+    }
+    setCallState("idle");
+    setCallElapsed(0);
+  };
+
+  useEffect(() => {
+    return () => {
+      clearCallTimers();
+    };
+  }, []);
+
   useEffect(() => {
     if (!initializedRef.current) {
       initializedRef.current = true;
@@ -135,24 +198,33 @@ function App() {
       return;
     }
 
+    let triggeredAlert: string | null = null;
     zoneStatuses.forEach(({ zone, status }) => {
       const prev = prevZoneStatusRef.current[zone.id] ?? "SAFE";
       if (prev === status) return;
       prevZoneStatusRef.current[zone.id] = status;
       if (status === "FIRE ALERT") {
         addEvent(`${zone.name} FIRE ALERT`, "FIRE ALERT");
+        if (!triggeredAlert) triggeredAlert = zone.name;
       } else if (status === "WARNING") {
         addEvent(`${zone.name} WARNING`, "WARNING");
       } else {
         addEvent(`${zone.name} cleared`, "SAFE");
       }
     });
+
+    if (triggeredAlert && callState === "idle") {
+      placeCall(`Fire detected in ${triggeredAlert}`);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [zones]);
 
   const handleReset = () => {
     setZones((prev) => prev.map((z) => ({ ...z, smoke: 0, temperature: 0 })));
     addEvent("System reset", "INFO");
+    if (callState !== "idle") {
+      endCall();
+    }
   };
 
   const headline =
@@ -210,6 +282,12 @@ function App() {
     year: "numeric",
   });
 
+  const formatElapsed = (s: number) => {
+    const mm = String(Math.floor(s / 60)).padStart(2, "0");
+    const ss = String(s % 60).padStart(2, "0");
+    return `${mm}:${ss}`;
+  };
+
   return (
     <div
       className={`min-h-screen w-full flex items-center justify-center p-6 transition-colors duration-300 ${containerBg}`}
@@ -228,6 +306,26 @@ function App() {
         }
         .fire-blink {
           animation: fireBlink 0.6s steps(1, end) infinite;
+        }
+        @keyframes ringPulse {
+          0% { transform: scale(1); opacity: 0.8; }
+          100% { transform: scale(1.8); opacity: 0; }
+        }
+        .ring-pulse {
+          animation: ringPulse 1.4s ease-out infinite;
+        }
+        @keyframes phoneShake {
+          0%, 100% { transform: rotate(0deg); }
+          15% { transform: rotate(-12deg); }
+          30% { transform: rotate(12deg); }
+          45% { transform: rotate(-10deg); }
+          60% { transform: rotate(10deg); }
+          75% { transform: rotate(-6deg); }
+          90% { transform: rotate(6deg); }
+        }
+        .phone-shake {
+          animation: phoneShake 0.9s ease-in-out infinite;
+          transform-origin: 50% 60%;
         }
       `}</style>
 
@@ -327,6 +425,89 @@ function App() {
           </p>
         </div>
 
+        <div className="mb-6 rounded-2xl border border-white/10 bg-slate-800/40 p-5">
+          <div className="flex items-start justify-between gap-3 mb-3">
+            <div className="flex items-center gap-2">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="w-4 h-4 text-slate-300"
+                aria-hidden="true"
+              >
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                <circle cx="12" cy="10" r="3" />
+              </svg>
+              <h2 className="text-base font-semibold text-slate-100">
+                Facility Location
+              </h2>
+            </div>
+            <button
+              type="button"
+              onClick={() => setEditingLocation((e) => !e)}
+              className="text-[11px] uppercase tracking-widest font-semibold px-3 py-1.5 rounded-md bg-slate-700 hover:bg-slate-600 text-slate-100 transition-colors"
+            >
+              {editingLocation ? "Done" : "Edit"}
+            </button>
+          </div>
+
+          {editingLocation ? (
+            <div className="space-y-3">
+              <div>
+                <label className="block text-[10px] uppercase tracking-widest text-slate-500 mb-1">
+                  Facility
+                </label>
+                <input
+                  type="text"
+                  value={location.facility}
+                  onChange={(e) =>
+                    setLocation((l) => ({ ...l, facility: e.target.value }))
+                  }
+                  className="w-full rounded-md border border-white/10 bg-slate-950/60 px-3 py-2 text-sm text-slate-100 outline-none focus:border-sky-400/50"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] uppercase tracking-widest text-slate-500 mb-1">
+                  Address
+                </label>
+                <input
+                  type="text"
+                  value={location.address}
+                  onChange={(e) =>
+                    setLocation((l) => ({ ...l, address: e.target.value }))
+                  }
+                  className="w-full rounded-md border border-white/10 bg-slate-950/60 px-3 py-2 text-sm text-slate-100 outline-none focus:border-sky-400/50"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] uppercase tracking-widest text-slate-500 mb-1">
+                  Coordinates
+                </label>
+                <input
+                  type="text"
+                  value={location.coords}
+                  onChange={(e) =>
+                    setLocation((l) => ({ ...l, coords: e.target.value }))
+                  }
+                  className="w-full rounded-md border border-white/10 bg-slate-950/60 px-3 py-2 text-sm text-slate-100 outline-none focus:border-sky-400/50"
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-1 text-sm">
+              <div className="text-slate-100 font-medium">{location.facility}</div>
+              <div className="text-slate-400">{location.address}</div>
+              <div className="text-slate-500 font-mono text-xs">
+                {location.coords}
+              </div>
+            </div>
+          )}
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {zoneStatuses.map(({ zone, status }) => {
             const t = statusTheme(status);
@@ -414,6 +595,30 @@ function App() {
           })}
         </div>
 
+        <div className="mt-6 flex justify-end">
+          <button
+            type="button"
+            onClick={() => placeCall("Manual call")}
+            disabled={callState !== "idle"}
+            className="inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-semibold uppercase tracking-widest bg-red-600 hover:bg-red-500 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="w-4 h-4"
+              aria-hidden="true"
+            >
+              <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.37 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.33 1.85.57 2.81.7A2 2 0 0 1 22 16.92z" />
+            </svg>
+            Call Fire Department
+          </button>
+        </div>
+
         <div className="mt-6 rounded-2xl border border-white/10 bg-slate-800/40 p-5">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
@@ -465,6 +670,115 @@ function App() {
           {dateString}
         </div>
       </div>
+
+      {callState !== "idle" && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-6">
+          <div className="w-full max-w-md rounded-3xl border border-white/10 bg-slate-900 shadow-2xl overflow-hidden">
+            <div
+              className={`px-6 py-5 text-center ${
+                callState === "ringing"
+                  ? "bg-gradient-to-br from-red-700 to-red-900"
+                  : "bg-gradient-to-br from-emerald-700 to-emerald-900"
+              }`}
+            >
+              <div className="text-[10px] uppercase tracking-[0.3em] text-white/70 mb-1">
+                {callState === "ringing"
+                  ? "Emergency Call — Ringing"
+                  : "Emergency Call — Connected"}
+              </div>
+              <div className="text-xl font-semibold text-white">
+                {FIRE_DEPT.name}
+              </div>
+              <div className="text-white/80 text-sm font-mono mt-1">
+                {FIRE_DEPT.number}
+              </div>
+            </div>
+
+            <div className="p-6 text-center">
+              <div className="relative mx-auto w-28 h-28 mb-5 flex items-center justify-center">
+                {callState === "ringing" && (
+                  <>
+                    <div className="absolute inset-0 rounded-full border-2 border-red-400/60 ring-pulse" />
+                    <div
+                      className="absolute inset-0 rounded-full border-2 border-red-400/60 ring-pulse"
+                      style={{ animationDelay: "0.5s" }}
+                    />
+                  </>
+                )}
+                <div
+                  className={`relative w-20 h-20 rounded-full flex items-center justify-center shadow-lg ${
+                    callState === "ringing"
+                      ? "bg-red-600"
+                      : "bg-emerald-600"
+                  }`}
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className={`w-9 h-9 text-white ${
+                      callState === "ringing" ? "phone-shake" : ""
+                    }`}
+                    aria-hidden="true"
+                  >
+                    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.37 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.33 1.85.57 2.81.7A2 2 0 0 1 22 16.92z" />
+                  </svg>
+                </div>
+              </div>
+
+              <div
+                className={`text-sm font-semibold uppercase tracking-widest mb-4 ${
+                  callState === "ringing"
+                    ? "text-red-300"
+                    : "text-emerald-300"
+                }`}
+              >
+                {callState === "ringing"
+                  ? "Ringing…"
+                  : `In call · ${formatElapsed(callElapsed)}`}
+              </div>
+
+              <div className="rounded-xl border border-white/10 bg-slate-800/60 p-4 text-left mb-5">
+                <div className="text-[10px] uppercase tracking-widest text-slate-500 mb-2">
+                  Location relayed
+                </div>
+                <div className="text-sm text-slate-100 font-medium">
+                  {location.facility}
+                </div>
+                <div className="text-sm text-slate-400 mt-0.5">
+                  {location.address}
+                </div>
+                <div className="text-xs text-slate-500 font-mono mt-1">
+                  {location.coords}
+                </div>
+
+                {alertingZones.length > 0 && (
+                  <div className="mt-3 pt-3 border-t border-white/10">
+                    <div className="text-[10px] uppercase tracking-widest text-slate-500 mb-1">
+                      Affected zones
+                    </div>
+                    <div className="text-sm text-red-300 font-semibold">
+                      {alertingZones.join(", ")}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <button
+                type="button"
+                onClick={endCall}
+                className="w-full rounded-xl px-4 py-3 text-sm font-semibold uppercase tracking-widest bg-slate-700 hover:bg-slate-600 text-white transition-colors"
+              >
+                End Call
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
