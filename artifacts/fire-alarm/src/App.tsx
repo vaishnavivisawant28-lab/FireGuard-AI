@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type Status = "SAFE" | "WARNING" | "FIRE ALERT";
 
@@ -7,6 +7,13 @@ type Zone = {
   name: string;
   smoke: number;
   temperature: number;
+};
+
+type LogEvent = {
+  id: number;
+  time: Date;
+  message: string;
+  level: Status | "INFO";
 };
 
 function getStatus(smoke: number, temperature: number): Status {
@@ -20,6 +27,8 @@ const STATUS_RANK: Record<Status, number> = {
   WARNING: 1,
   "FIRE ALERT": 2,
 };
+
+const MAX_EVENTS = 10;
 
 function statusTheme(status: Status) {
   if (status === "FIRE ALERT") {
@@ -55,11 +64,46 @@ function statusTheme(status: Status) {
   };
 }
 
+function logLevelStyle(level: LogEvent["level"]) {
+  if (level === "FIRE ALERT")
+    return { dot: "bg-red-500", text: "text-red-300" };
+  if (level === "WARNING")
+    return { dot: "bg-amber-400", text: "text-amber-300" };
+  if (level === "SAFE")
+    return { dot: "bg-emerald-400", text: "text-emerald-300" };
+  return { dot: "bg-slate-400", text: "text-slate-300" };
+}
+
+function formatTime(d: Date) {
+  return d.toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+}
+
 function App() {
   const [zones, setZones] = useState<Zone[]>([
     { id: 1, name: "Zone 1", smoke: 0, temperature: 0 },
     { id: 2, name: "Zone 2", smoke: 0, temperature: 0 },
   ]);
+
+  const [events, setEvents] = useState<LogEvent[]>([]);
+  const eventIdRef = useRef(0);
+  const prevZoneStatusRef = useRef<Record<number, Status>>({});
+  const initializedRef = useRef(false);
+
+  const addEvent = (message: string, level: LogEvent["level"]) => {
+    setEvents((prev) => {
+      const next: LogEvent = {
+        id: ++eventIdRef.current,
+        time: new Date(),
+        message,
+        level,
+      };
+      return [next, ...prev].slice(0, MAX_EVENTS);
+    });
+  };
 
   const zoneStatuses = zones.map((z) => ({
     zone: z,
@@ -80,6 +124,36 @@ function App() {
 
   const isAlert = overall === "FIRE ALERT";
   const isWarning = overall === "WARNING";
+
+  useEffect(() => {
+    if (!initializedRef.current) {
+      initializedRef.current = true;
+      addEvent("System started", "INFO");
+      zones.forEach((z) => {
+        prevZoneStatusRef.current[z.id] = "SAFE";
+      });
+      return;
+    }
+
+    zoneStatuses.forEach(({ zone, status }) => {
+      const prev = prevZoneStatusRef.current[zone.id] ?? "SAFE";
+      if (prev === status) return;
+      prevZoneStatusRef.current[zone.id] = status;
+      if (status === "FIRE ALERT") {
+        addEvent(`${zone.name} FIRE ALERT`, "FIRE ALERT");
+      } else if (status === "WARNING") {
+        addEvent(`${zone.name} WARNING`, "WARNING");
+      } else {
+        addEvent(`${zone.name} cleared`, "SAFE");
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [zones]);
+
+  const handleReset = () => {
+    setZones((prev) => prev.map((z) => ({ ...z, smoke: 0, temperature: 0 })));
+    addEvent("System reset", "INFO");
+  };
 
   const headline =
     overall === "FIRE ALERT"
@@ -129,10 +203,6 @@ function App() {
   };
 
   const now = new Date();
-  const timeString = now.toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
   const dateString = now.toLocaleDateString([], {
     weekday: "long",
     month: "long",
@@ -344,9 +414,55 @@ function App() {
           })}
         </div>
 
-        <div className="mt-8 pt-6 border-t border-white/10 flex items-center justify-between text-xs text-slate-500">
-          <span>{dateString}</span>
-          <span>Last check {timeString}</span>
+        <div className="mt-6 rounded-2xl border border-white/10 bg-slate-800/40 p-5">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <span className="inline-block w-2 h-2 rounded-full bg-slate-300" />
+              <h2 className="text-base font-semibold text-slate-100">
+                Event Log
+              </h2>
+              <span className="text-[10px] uppercase tracking-widest text-slate-500">
+                Latest {events.length}/{MAX_EVENTS}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={handleReset}
+              className="text-[11px] uppercase tracking-widest font-semibold px-3 py-1.5 rounded-md bg-slate-700 hover:bg-slate-600 text-slate-100 transition-colors"
+            >
+              Reset System
+            </button>
+          </div>
+
+          <div className="h-56 overflow-y-auto rounded-lg border border-white/5 bg-slate-950/50 divide-y divide-white/5">
+            {events.length === 0 ? (
+              <div className="p-4 text-sm text-slate-500 text-center">
+                No events yet.
+              </div>
+            ) : (
+              events.map((ev) => {
+                const s = logLevelStyle(ev.level);
+                return (
+                  <div
+                    key={ev.id}
+                    className="flex items-center gap-3 px-4 py-2.5 text-sm"
+                  >
+                    <span
+                      className={`inline-block w-2 h-2 rounded-full shrink-0 ${s.dot}`}
+                    />
+                    <span className="font-mono text-xs text-slate-500 shrink-0 tabular-nums">
+                      {formatTime(ev.time)}
+                    </span>
+                    <span className={`flex-1 ${s.text}`}>{ev.message}</span>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+
+        <div className="mt-6 pt-6 border-t border-white/10 text-xs text-slate-500 text-center">
+          {dateString}
         </div>
       </div>
     </div>
