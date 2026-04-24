@@ -117,6 +117,7 @@ function App() {
   const callTimersRef = useRef<{ connect?: number; tick?: number }>({});
   const [power, setPower] = useState<PowerState>("online");
   const powerTimerRef = useRef<number | undefined>(undefined);
+  const [sprinklers, setSprinklers] = useState<Record<number, boolean>>({});
 
   const addEvent = (message: string, level: LogEvent["level"]) => {
     setEvents((prev) => {
@@ -226,10 +227,22 @@ function App() {
       if (status === "FIRE ALERT") {
         addEvent(`${zone.name} FIRE ALERT`, "FIRE ALERT");
         if (!triggeredAlert) triggeredAlert = zone.name;
+        setSprinklers((s) => {
+          if (s[zone.id]) return s;
+          addEvent(`${zone.name} sprinklers activated`, "INFO");
+          return { ...s, [zone.id]: true };
+        });
       } else if (status === "WARNING") {
         addEvent(`${zone.name} WARNING`, "WARNING");
       } else {
         addEvent(`${zone.name} cleared`, "SAFE");
+      }
+      if (prev === "FIRE ALERT" && status !== "FIRE ALERT") {
+        setSprinklers((s) => {
+          if (!s[zone.id]) return s;
+          addEvent(`${zone.name} sprinklers off`, "INFO");
+          return { ...s, [zone.id]: false };
+        });
       }
     });
 
@@ -253,6 +266,23 @@ function App() {
       setPower("online");
       addEvent("Electrical power restored", "INFO");
     }
+    setSprinklers((s) => {
+      if (Object.values(s).some(Boolean)) {
+        addEvent("All sprinklers shut off", "INFO");
+      }
+      return {};
+    });
+  };
+
+  const toggleSprinkler = (zone: Zone) => {
+    setSprinklers((s) => {
+      const next = !s[zone.id];
+      addEvent(
+        `${zone.name} sprinklers ${next ? "manually activated" : "manually turned off"}`,
+        "INFO",
+      );
+      return { ...s, [zone.id]: next };
+    });
   };
 
   const headline =
@@ -341,6 +371,14 @@ function App() {
         }
         .ring-pulse {
           animation: ringPulse 1.4s ease-out infinite;
+        }
+        @keyframes sprinkleDrop {
+          0% { transform: translateY(-2px); opacity: 0; }
+          30% { opacity: 1; }
+          100% { transform: translateY(10px); opacity: 0; }
+        }
+        .sprinkle-drop {
+          animation: sprinkleDrop 0.9s ease-in infinite;
         }
         @keyframes phoneShake {
           0%, 100% { transform: rotate(0deg); }
@@ -607,6 +645,7 @@ function App() {
           {zoneStatuses.map(({ zone, status }) => {
             const t = statusTheme(status);
             const isZoneAlert = status === "FIRE ALERT";
+            const sprinklerOn = !!sprinklers[zone.id];
             return (
               <div
                 key={zone.id}
@@ -683,6 +722,76 @@ function App() {
                       }
                       className={`w-full ${t.slider}`}
                     />
+                  </div>
+
+                  <div
+                    className={`mt-1 rounded-xl border px-3 py-2.5 flex items-center justify-between gap-3 transition-colors ${
+                      sprinklerOn
+                        ? "border-sky-400/40 bg-sky-500/10"
+                        : "border-white/10 bg-slate-900/40"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <div className="relative">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className={`w-4 h-4 ${
+                            sprinklerOn ? "text-sky-300" : "text-slate-500"
+                          }`}
+                          aria-hidden="true"
+                        >
+                          <path d="M12 2v4" />
+                          <path d="M5 9h14" />
+                          <path d="M7 9c0 3 2 5 5 5s5-2 5-5" />
+                          <path d="M12 14v8" />
+                        </svg>
+                        {sprinklerOn && (
+                          <>
+                            <span
+                              className="sprinkle-drop absolute left-[2px] top-3 w-[2px] h-[5px] rounded-full bg-sky-300"
+                              style={{ animationDelay: "0s" }}
+                            />
+                            <span
+                              className="sprinkle-drop absolute left-1/2 -translate-x-1/2 top-3 w-[2px] h-[5px] rounded-full bg-sky-300"
+                              style={{ animationDelay: "0.3s" }}
+                            />
+                            <span
+                              className="sprinkle-drop absolute right-[2px] top-3 w-[2px] h-[5px] rounded-full bg-sky-300"
+                              style={{ animationDelay: "0.6s" }}
+                            />
+                          </>
+                        )}
+                      </div>
+                      <div>
+                        <div className="text-[10px] uppercase tracking-widest text-slate-400">
+                          Sprinklers
+                        </div>
+                        <div
+                          className={`text-sm font-semibold ${
+                            sprinklerOn ? "text-sky-300" : "text-slate-300"
+                          }`}
+                        >
+                          {sprinklerOn ? "Active" : "Standby"}
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => toggleSprinkler(zone)}
+                      className={`text-[10px] uppercase tracking-widest font-semibold px-2.5 py-1 rounded-md transition-colors ${
+                        sprinklerOn
+                          ? "bg-sky-500/20 text-sky-200 hover:bg-sky-500/30"
+                          : "bg-slate-700/60 text-slate-200 hover:bg-slate-600/60"
+                      }`}
+                    >
+                      {sprinklerOn ? "Stop" : "Activate"}
+                    </button>
                   </div>
                 </div>
               </div>
