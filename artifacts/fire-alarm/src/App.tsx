@@ -18,6 +18,8 @@ type LogEvent = {
 
 type CallState = "idle" | "ringing" | "connected";
 
+type PowerState = "online" | "shutting-down" | "offline";
+
 function getStatus(smoke: number, temperature: number): Status {
   if (smoke > 70 || temperature > 60) return "FIRE ALERT";
   if (smoke > 40) return "WARNING";
@@ -113,6 +115,8 @@ function App() {
   const [callState, setCallState] = useState<CallState>("idle");
   const [callElapsed, setCallElapsed] = useState(0);
   const callTimersRef = useRef<{ connect?: number; tick?: number }>({});
+  const [power, setPower] = useState<PowerState>("online");
+  const powerTimerRef = useRef<number | undefined>(undefined);
 
   const addEvent = (message: string, level: LogEvent["level"]) => {
     setEvents((prev) => {
@@ -156,6 +160,18 @@ function App() {
     callTimersRef.current = {};
   };
 
+  const triggerPowerShutoff = () => {
+    if (powerTimerRef.current) {
+      window.clearTimeout(powerTimerRef.current);
+    }
+    setPower("shutting-down");
+    addEvent("Initiating electrical power shutoff", "INFO");
+    powerTimerRef.current = window.setTimeout(() => {
+      setPower("offline");
+      addEvent("Electrical power shut off — building is safe", "INFO");
+    }, 2500);
+  };
+
   const placeCall = (reason: string) => {
     clearCallTimers();
     setCallState("ringing");
@@ -170,6 +186,7 @@ function App() {
       callTimersRef.current.tick = window.setInterval(() => {
         setCallElapsed((s) => s + 1);
       }, 1000);
+      triggerPowerShutoff();
     }, 3000);
   };
 
@@ -185,6 +202,9 @@ function App() {
   useEffect(() => {
     return () => {
       clearCallTimers();
+      if (powerTimerRef.current) {
+        window.clearTimeout(powerTimerRef.current);
+      }
     };
   }, []);
 
@@ -224,6 +244,14 @@ function App() {
     addEvent("System reset", "INFO");
     if (callState !== "idle") {
       endCall();
+    }
+    if (powerTimerRef.current) {
+      window.clearTimeout(powerTimerRef.current);
+      powerTimerRef.current = undefined;
+    }
+    if (power !== "online") {
+      setPower("online");
+      addEvent("Electrical power restored", "INFO");
     }
   };
 
@@ -423,6 +451,73 @@ function App() {
           <p className="text-slate-300 text-sm sm:text-base max-w-md mx-auto mb-8">
             {description}
           </p>
+        </div>
+
+        <div
+          className={`mb-6 rounded-2xl border p-5 transition-colors ${
+            power === "offline"
+              ? "border-slate-500/40 bg-slate-900/70"
+              : power === "shutting-down"
+                ? "border-amber-500/40 bg-amber-950/30"
+                : "border-emerald-500/30 bg-slate-800/40"
+          }`}
+        >
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div
+                className={`w-9 h-9 rounded-full flex items-center justify-center ${
+                  power === "offline"
+                    ? "bg-slate-700 text-slate-300"
+                    : power === "shutting-down"
+                      ? "bg-amber-500/20 text-amber-300"
+                      : "bg-emerald-500/20 text-emerald-300"
+                }`}
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className={`w-5 h-5 ${
+                    power === "shutting-down" ? "fire-blink" : ""
+                  }`}
+                  aria-hidden="true"
+                >
+                  <path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z" />
+                </svg>
+              </div>
+              <div>
+                <div className="text-[10px] uppercase tracking-widest text-slate-400">
+                  Electrical Power
+                </div>
+                <div
+                  className={`text-base font-semibold ${
+                    power === "offline"
+                      ? "text-slate-200"
+                      : power === "shutting-down"
+                        ? "text-amber-300"
+                        : "text-emerald-300"
+                  }`}
+                >
+                  {power === "offline"
+                    ? "Power Shut Off"
+                    : power === "shutting-down"
+                      ? "Shutting down…"
+                      : "Online"}
+                </div>
+              </div>
+            </div>
+            <div className="text-right text-xs text-slate-500 max-w-[55%]">
+              {power === "offline"
+                ? "Mains disconnected after emergency call to prevent electrical hazards."
+                : power === "shutting-down"
+                  ? "Cutting mains power now that dispatch has been notified."
+                  : "Mains live. Will shut off automatically once a fire call is connected."}
+            </div>
+          </div>
         </div>
 
         <div className="mb-6 rounded-2xl border border-white/10 bg-slate-800/40 p-5">
