@@ -1,427 +1,244 @@
 # 🔥 FireGuard AI
+### AI-Powered Fire Safety & Emergency Response Assistant
 
-> Intelligent Fire Alarm Monitoring & Emergency Response Platform
-
-![React](https://img.shields.io/badge/React-19-blue?style=for-the-badge&logo=react)
-![TypeScript](https://img.shields.io/badge/TypeScript-5-blue?style=for-the-badge&logo=typescript)
-![Express](https://img.shields.io/badge/Express.js-Backend-black?style=for-the-badge&logo=express)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Database-blue?style=for-the-badge&logo=postgresql)
-![Drizzle ORM](https://img.shields.io/badge/Drizzle-ORM-green?style=for-the-badge)
-![Tailwind CSS](https://img.shields.io/badge/TailwindCSS-4-38BDF8?style=for-the-badge&logo=tailwindcss)
-![License](https://img.shields.io/badge/License-MIT-success?style=for-the-badge)
+FireGuard AI is an intelligent fire monitoring and emergency response platform that combines real-time monitoring with Google Gemini AI to help detect incidents, analyze risks, provide emergency guidance, and generate AI-powered reports.
 
 ---
 
-## 📖 Overview
+## 🚀 Overview
 
-FireGuard AI is a modern full-stack fire alarm monitoring platform designed to provide real-time visibility into fire alarm systems, emergency alerts, event tracking, and safety analytics.
+FireGuard AI transforms traditional fire alarm systems into intelligent safety assistants. The platform continuously monitors fire-related events, provides AI-generated incident analysis, recommends emergency actions, and assists safety personnel with real-time decision making.
 
-The platform enables organizations, educational institutions, industries, hospitals, commercial buildings, and smart infrastructure systems to monitor fire alarm statuses through an interactive dashboard while maintaining historical records of incidents for analysis and compliance.
+The project is designed for:
 
-Built with React, TypeScript, Express.js, PostgreSQL, and Drizzle ORM, FireGuard AI delivers a scalable, secure, and responsive solution for fire safety management.
-
----
-
-## 🎯 Problem Statement
-
-Traditional fire alarm systems often lack centralized monitoring, analytics, and real-time visualization capabilities. Safety personnel may face delays in identifying incidents, monitoring multiple facilities, or maintaining historical records.
-
-FireGuard AI addresses these challenges by:
-
-- Providing real-time fire alarm monitoring
-- Centralizing incident management
-- Recording alarm history
-- Displaying emergency alerts instantly
-- Supporting data-driven safety decisions
-- Enhancing operational awareness
+- 🏭 Industrial Facilities
+- 🏢 Office Buildings
+- 🏫 Schools & Universities
+- 🏥 Hospitals
+- 🏬 Shopping Malls
+- 🏠 Smart Buildings
 
 ---
 
-## ✨ Features
+# ✨ Features
 
-### 🔥 Real-Time Fire Monitoring
-- Live fire alarm status updates
-- Active alarm tracking
-- Emergency event visualization
-- Continuous monitoring system
-
-### 🚨 Emergency Alert Management
-- Instant emergency notifications
-- Alarm severity indicators
-- Incident categorization
-- Alert history tracking
-
-### 📊 Analytics Dashboard
-- Alarm frequency charts
-- Event trend visualization
-- Monitoring statistics
-- Historical reporting
-
-### 🗄️ Event Logging & Storage
-- PostgreSQL-powered storage
-- Incident history records
-- Event timestamps
-- Secure database management
-
-### 📱 Responsive User Interface
-- Mobile-friendly dashboard
-- Tablet support
-- Desktop optimization
-- Modern UI/UX
-
-### 🔒 Secure Architecture
-- Type-safe APIs
-- Schema validation using Zod
-- Secure backend architecture
-- Reliable data handling
+## 🔥 Fire Monitoring Dashboard
+- Live fire monitoring
+- Smoke level monitoring
+- Temperature monitoring
+- Multi-zone dashboard
+- Emergency status updates
 
 ---
 
-## 🏗️ System Architecture
+## 🤖 Google Gemini AI Integration
 
-```text
-Fire Alarm Devices
-        │
-        ▼
- Monitoring Layer
-        │
-        ▼
-   Express.js API
-        │
-        ▼
-     Drizzle ORM
-        │
-        ▼
- PostgreSQL Database
-        │
-        ▼
- React Dashboard UI
-        │
-        ▼
-      End Users
-```
+FireGuard AI integrates Google Gemini to provide:
+
+- AI Incident Analysis
+- Daily Safety Summaries
+- Fire Safety Recommendations
+- Risk Assessment
+- Emergency Response Guidance
+- AI Chat Assistant
 
 ---
 
-## 🛠️ Technology Stack
+## 💬 FireGuard AI Chatbot
+
+Users can ask questions such as:
+
+- What happened today?
+- Summarize today's incidents.
+- What should we do during a fire?
+- Fire prevention tips.
+- Safety recommendations.
+
+---
+
+## 📊 AI Daily Safety Summary
+
+Automatically generates:
+
+- Total Fire Alerts
+- Warning Count
+- Peak Smoke Level
+- Risk Rating
+- AI Recommendations
+- Safety Improvements
+
+---
+
+## 📋 AI Incident Reports
+
+Generate professional AI reports containing:
+
+- Incident Summary
+- Severity Analysis
+- Possible Cause
+- Emergency Guidance
+- Evacuation Instructions
+- Safety Recommendations
+
+Reports can be exported for documentation.
+
+---
+
+## 🚨 Smart Emergency Guidance
+
+During a fire event FireGuard AI automatically provides:
+
+- Evacuation Instructions
+- Fire Extinguisher Recommendations
+- Emergency Contact Guidance
+- Electrical Shutdown Advice
+
+---
+
+## 📜 Event Logging
+
+- Fire events
+- Warning events
+- System activity
+- Incident history
+- Emergency actions
+
+---
+
+# 🛠 Technology Stack
 
 ### Frontend
-- React 19
+
+- React
 - TypeScript
-- Vite
-- Tailwind CSS 4
-- Radix UI
-- Framer Motion
-- TanStack Query
-- Wouter Router
-- Recharts
+- Tailwind CSS
 
 ### Backend
-- Node.js
-- Express.js
-- TypeScript
-- Pino Logging
-- Zod Validation
+
+- FastAPI
+- Python
+
+### AI
+
+- Google Gemini API
+- Google AI Studio
 
 ### Database
+
 - PostgreSQL
-- Drizzle ORM
-- Drizzle Kit
+
+### Computer Vision
+
+- OpenCV
+- YOLOv8 (planned/live integration)
 
 ### Deployment
+
+- Docker
 - Replit
-- Vite Build System
 
 ---
 
-## 📂 Project Structure
+# 🏗 Architecture
 
-```text
-FireGuard-AI/
-│
-├── artifacts/
-│   ├── fire-alarm/
-│   │   ├── src/
-│   │   ├── components/
-│   │   ├── pages/
-│   │   ├── hooks/
-│   │   └── assets/
-│   │
-│   └── api-server/
-│       ├── routes/
-│       ├── controllers/
-│       ├── services/
-│       └── middleware/
-│
-├── lib/
-│   ├── db/
-│   │   ├── schema/
-│   │   └── index.ts
-│   │
-│   ├── api-client-react/
-│   ├── api-spec/
-│   └── api-zod/
-│
-├── scripts/
-├── package.json
-├── pnpm-lock.yaml
-└── README.md
+```
+Sensors / CCTV
+       │
+       ▼
+FireGuard AI Dashboard
+       │
+       ▼
+FastAPI Backend
+       │
+ ┌─────┴────────┐
+ │              │
+ ▼              ▼
+Gemini API   PostgreSQL
+ │              │
+ ▼              ▼
+AI Reports   Incident Logs
 ```
 
 ---
 
-## ⚙️ Installation
+# 🌟 Future Roadmap
 
-### Clone Repository
-
-```bash
-git clone https://github.com/vaishnavivisawant28-lab/FireGuard-AI.git
-cd FireGuard-AI
-```
-
-### Install Dependencies
-
-```bash
-pnpm install
-```
-
-or
-
-```bash
-npm install
-```
-
-### Configure Environment Variables
-
-Create a `.env` file:
-
-```env
-DATABASE_URL=postgresql://username:password@localhost:5432/fireguard
-PORT=5000
-NODE_ENV=development
-```
-
-### Push Database Schema
-
-```bash
-pnpm run push
-```
-
-### Start Development Server
-
-```bash
-pnpm dev
-```
+- PPE Detection
+- Fire Detection using CCTV
+- Smoke Detection using Computer Vision
+- IoT Sensor Integration
+- Mobile Application
+- Firebase Authentication
+- Google Cloud Deployment
+- Predictive Fire Risk Analytics
+- Multi-building Monitoring
+- Voice-based Emergency Assistant
 
 ---
 
-## 🗄️ Database Commands
+# 🎯 Use Cases
 
-Apply database schema:
-
-```bash
-pnpm run push
-```
-
-Force apply schema:
-
-```bash
-pnpm run push-force
-```
+- Smart Factories
+- Manufacturing Plants
+- Schools
+- Government Buildings
+- Hospitals
+- Warehouses
+- Shopping Malls
+- Corporate Offices
 
 ---
 
-## 🔄 Workflow
+# 📈 Impact
 
-```text
-Alarm Trigger
-      │
-      ▼
-Backend Receives Event
-      │
-      ▼
-Data Validation (Zod)
-      │
-      ▼
-Database Storage
-      │
-      ▼
-Dashboard Update
-      │
-      ▼
-Alert Notification
-      │
-      ▼
-Event Logging
-```
+FireGuard AI helps organizations:
+
+- Improve emergency response
+- Reduce incident response time
+- Enhance workplace safety
+- Provide AI-powered decision support
+- Generate intelligent fire reports
+- Improve situational awareness
 
 ---
 
-## 📊 Dashboard Modules
+# 🔒 Security
 
-### 🔥 Fire Status Panel
-Displays:
-- Active alarms
-- Safe status
-- Emergency conditions
-
-### 🚨 Alerts Section
-Provides:
-- Critical alerts
-- Warning notifications
-- Incident details
-
-### 📈 Analytics Dashboard
-Displays:
-- Alarm frequency
-- Monthly reports
-- Historical incidents
-- Trend analysis
-
-### 📜 Event History
-Stores:
-- Timestamped records
-- Alarm events
-- Status changes
-- Emergency logs
+- Secure API integration
+- Environment variables for API keys
+- Modular backend architecture
+- Scalable deployment
 
 ---
 
-## 🎯 Applications
+# 📷 Screenshots
 
-- 🏢 Commercial Buildings
-- 🏭 Industrial Facilities
-- 🏥 Hospitals
-- 🏫 Educational Institutions
-- 🏠 Smart Buildings
-- ✈️ Transportation Hubs
+(Add your latest dashboard screenshots here.)
 
 ---
 
-## 🔒 Security Features
+# 👩‍💻 Developer
 
-- Type-safe API architecture
-- PostgreSQL secure storage
-- Input validation using Zod
-- Structured error handling
-- Database schema enforcement
-- Backend logging and monitoring
+**Vaishnavi Vithoba Sawant**
 
----
+Computer Science Engineering
 
-## 🚀 Future Enhancements
-
-- AI-powered fire risk prediction
-- Smoke detection integration
-- IoT sensor connectivity
-- SMS alert system
-- Email notifications
-- Mobile application
-- GIS-based emergency mapping
-- Multi-location monitoring
-- Predictive analytics dashboard
+Srinivas University
 
 ---
 
-## 📸 Screenshots
+# 🔗 Links
 
-### Dashboard
-_Add dashboard screenshot here_
+### GitHub
 
-### Fire Alarm Monitoring
-_Add monitoring screenshot here_
+https://github.com/vaishnavivisawant28-lab/FireGuard-AI
 
-### Analytics Panel
-_Add analytics screenshot here_
+### LinkedIn
 
-### Alert Management
-_Add alert management screenshot here_
+https://www.linkedin.com/in/vaishnavi-sawant-a53213406
 
 ---
 
-## 🤝 Contributing
+# 📄 License
 
-Contributions are welcome.
-
-1. Fork the repository
-2. Create a feature branch
-
-```bash
-git checkout -b feature/NewFeature
-```
-
-3. Commit changes
-
-```bash
-git commit -m "Add New Feature"
-```
-
-4. Push to GitHub
-
-```bash
-git push origin feature/NewFeature
-```
-
-5. Open a Pull Request
-
----
-
-## 👩‍💻 Author
-
-**Vaishnavi Visawant**
-
-Computer Science Engineering Student
-
-GitHub: https://github.com/vaishnavivisawant28-lab
-
----
-
-## 🏆 Project Highlights
-
-✅ Full-Stack Architecture
-
-✅ React 19 + TypeScript
-
-✅ Express.js API
-
-✅ PostgreSQL Database
-
-✅ Drizzle ORM
-
-✅ Real-Time Monitoring
-
-✅ Analytics Dashboard
-
-✅ Responsive Design
-
-✅ Enterprise Ready
-
----
-
-## 📜 License
-
-This project is licensed under the MIT License.
-
----
-
-## ⭐ Support
-
-If you found this project useful:
-
-⭐ Star the repository
-
-🍴 Fork the project
-
-🛠️ Contribute improvements
-
-📢 Share with others
-
----
-
-# 🔥 FireGuard AI
-### Smart Monitoring • Faster Response • Safer Future 🚒
-
-
-
-
-
+This project is developed for educational, research, and innovation purposes.
