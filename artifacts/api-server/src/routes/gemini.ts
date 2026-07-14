@@ -3,15 +3,28 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const router: IRouter = Router();
 
-function getGeminiClient() {
+const MODEL = "gemini-2.0-flash-lite"; // separate quota from gemini-2.0-flash
+
+function getModel() {
   const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) throw new Error("GEMINI_API_KEY is not set");
-  return new GoogleGenerativeAI(apiKey);
+  if (!apiKey) throw new Error("GEMINI_API_KEY environment variable is not set.");
+  return new GoogleGenerativeAI(apiKey).getGenerativeModel({ model: MODEL });
+}
+
+function extractUserFacingError(err: unknown): string {
+  if (!(err instanceof Error)) return "Unknown error occurred.";
+  const msg = err.message;
+  if (msg.includes("429") || msg.includes("Too Many Requests") || msg.includes("quota")) {
+    return `Gemini API quota exceeded (free tier limit reached). Please wait a minute and try again, or enable billing at https://aistudio.google.com. Raw: ${msg.slice(0, 200)}`;
+  }
+  if (msg.includes("401") || msg.includes("403") || msg.includes("API_KEY") || msg.includes("invalid")) {
+    return `Gemini API key rejected (401/403). Verify your GEMINI_API_KEY at https://aistudio.google.com/app/apikey. Raw: ${msg.slice(0, 200)}`;
+  }
+  return msg;
 }
 
 /**
  * POST /api/ai/analyze-incident
- * Accepts fire event data and returns a structured AI analysis from Gemini.
  */
 router.post("/analyze-incident", async (req, res) => {
   try {
@@ -23,8 +36,7 @@ router.post("/analyze-incident", async (req, res) => {
       power: string;
     };
 
-    const genAI = getGeminiClient();
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+    const model = getModel();
 
     const affectedZones = zones.filter(z => z.smoke > 40 || z.temperature > 40);
     const zoneDetails = affectedZones.map(z =>
@@ -57,26 +69,24 @@ Respond ONLY with valid JSON in this exact structure:
   "immediateActions": ["action 1", "action 2", "action 3", "action 4"],
   "evacuationGuidance": ["step 1", "step 2", "step 3", "step 4"],
   "safetyRecommendations": ["recommendation 1", "recommendation 2", "recommendation 3"],
-  "riskLevel": "LOW" | "MEDIUM" | "HIGH" | "CRITICAL"
+  "riskLevel": "LOW"
 }`;
 
     const result = await model.generateContent(prompt);
     const text = result.response.text().trim();
-
     const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) throw new Error("No JSON found in Gemini response");
+    if (!jsonMatch) throw new Error("Gemini returned no JSON. Raw response: " + text.slice(0, 300));
 
     const parsed = JSON.parse(jsonMatch[0]);
     res.json({ success: true, analysis: parsed, generatedAt: new Date().toISOString() });
   } catch (err) {
     req.log.error({ err }, "Gemini incident analysis failed");
-    res.status(500).json({ success: false, error: "AI analysis failed. Please try again." });
+    res.status(500).json({ success: false, error: extractUserFacingError(err) });
   }
 });
 
 /**
  * POST /api/ai/chat
- * FireGuard AI assistant chat endpoint.
  */
 router.post("/chat", async (req, res) => {
   try {
@@ -91,8 +101,7 @@ router.post("/chat", async (req, res) => {
       };
     };
 
-    const genAI = getGeminiClient();
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+    const model = getModel();
 
     const zoneStatus = context.zones.map(z =>
       `${z.name}: smoke=${z.smoke}%, temp=${z.temperature}°C, occupants=${z.humans + z.pets}`
@@ -121,13 +130,12 @@ You provide clear, concise, professional advice on fire safety, emergency respon
     res.json({ success: true, reply, timestamp: new Date().toISOString() });
   } catch (err) {
     req.log.error({ err }, "Gemini chat failed");
-    res.status(500).json({ success: false, error: "AI assistant unavailable. Please try again." });
+    res.status(500).json({ success: false, error: extractUserFacingError(err) });
   }
 });
 
 /**
  * POST /api/ai/daily-summary
- * Generates an AI daily safety summary card.
  */
 router.post("/daily-summary", async (req, res) => {
   try {
@@ -137,8 +145,7 @@ router.post("/daily-summary", async (req, res) => {
       location: { facility: string; address: string; coords: string };
     };
 
-    const genAI = getGeminiClient();
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+    const model = getModel();
 
     const alertCount = events.filter(e => e.level === "FIRE ALERT").length;
     const warningCount = events.filter(e => e.level === "WARNING").length;
@@ -156,24 +163,24 @@ ${allLogs || "No events recorded today"}
 
 Respond ONLY with valid JSON:
 {
-  "overallRating": "SAFE" | "CAUTION" | "CRITICAL",
+  "overallRating": "SAFE",
   "summary": "2-sentence overview of today's safety status",
   "highestRiskArea": "zone name and why",
   "commonCauses": ["cause 1", "cause 2"],
   "aiRecommendations": ["recommendation 1", "recommendation 2", "recommendation 3"],
-  "statusBadge": "one short phrase like 'All Clear' or 'Elevated Risk'"
+  "statusBadge": "one short phrase like All Clear or Elevated Risk"
 }`;
 
     const result = await model.generateContent(prompt);
     const text = result.response.text().trim();
     const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) throw new Error("No JSON in response");
+    if (!jsonMatch) throw new Error("Gemini returned no JSON. Raw response: " + text.slice(0, 300));
 
     const parsed = JSON.parse(jsonMatch[0]);
     res.json({ success: true, summary: parsed, generatedAt: new Date().toISOString() });
   } catch (err) {
     req.log.error({ err }, "Gemini daily summary failed");
-    res.status(500).json({ success: false, error: "Could not generate daily summary." });
+    res.status(500).json({ success: false, error: extractUserFacingError(err) });
   }
 });
 

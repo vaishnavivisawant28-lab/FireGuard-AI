@@ -42,6 +42,19 @@ export interface EventPayload {
 
 const BASE = "/api/ai";
 
+async function callApi<T>(url: string, body: unknown): Promise<T> {
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json().catch(() => ({ success: false, error: `HTTP ${res.status} ${res.statusText}` }));
+  if (!data.success) {
+    throw new Error(data.error ?? `HTTP ${res.status}`);
+  }
+  return data as T;
+}
+
 export async function analyzeIncident(payload: {
   zones: ZonePayload[];
   location: LocationPayload;
@@ -49,15 +62,7 @@ export async function analyzeIncident(payload: {
   overall: string;
   power: string;
 }): Promise<{ analysis: IncidentAnalysis; generatedAt: string }> {
-  const res = await fetch(`${BASE}/analyze-incident`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-  if (!res.ok) throw new Error("Incident analysis request failed");
-  const data = await res.json();
-  if (!data.success) throw new Error(data.error ?? "Unknown error");
-  return data;
+  return callApi(`${BASE}/analyze-incident`, payload);
 }
 
 export async function chatWithAI(
@@ -70,15 +75,8 @@ export async function chatWithAI(
     power: string;
   }
 ): Promise<string> {
-  const res = await fetch(`${BASE}/chat`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ message, context }),
-  });
-  if (!res.ok) throw new Error("Chat request failed");
-  const data = await res.json();
-  if (!data.success) throw new Error(data.error ?? "Unknown error");
-  return data.reply as string;
+  const data = await callApi<{ reply: string }>(`${BASE}/chat`, { message, context });
+  return data.reply;
 }
 
 export async function getDailySummary(payload: {
@@ -86,13 +84,5 @@ export async function getDailySummary(payload: {
   zones: ZonePayload[];
   location: LocationPayload;
 }): Promise<{ summary: DailySummary; generatedAt: string }> {
-  const res = await fetch(`${BASE}/daily-summary`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-  if (!res.ok) throw new Error("Daily summary request failed");
-  const data = await res.json();
-  if (!data.success) throw new Error(data.error ?? "Unknown error");
-  return data;
+  return callApi(`${BASE}/daily-summary`, payload);
 }
