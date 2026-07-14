@@ -1,4 +1,8 @@
 import { useEffect, useRef, useState } from "react";
+import AIIncidentPanel from "./components/AIIncidentPanel";
+import AIChatbot from "./components/AIChatbot";
+import AIDailySummary from "./components/AIDailySummary";
+import AIEmergencyGuidance from "./components/AIEmergencyGuidance";
 
 type Status = "SAFE" | "WARNING" | "FIRE ALERT";
 
@@ -949,7 +953,41 @@ function App() {
           })}
         </div>
 
-        <div className="mt-6 flex justify-end">
+        {/* AI Emergency Guidance — shown automatically during FIRE ALERT */}
+        {isAlert && (
+          <div className="mt-6">
+            <AIEmergencyGuidance
+              alertingZones={alertingZones}
+              smoke={Math.max(...zones.map(z => z.smoke))}
+              temperature={Math.max(...zones.map(z => z.temperature))}
+              power={power}
+              occupants={{
+                humans: zones.reduce((s, z) => s + z.humans, 0),
+                pets: zones.reduce((s, z) => s + z.pets, 0),
+              }}
+            />
+          </div>
+        )}
+
+        {/* AI Daily Summary card */}
+        <div className="mt-6">
+          <AIDailySummary
+            zones={zones}
+            location={location}
+            events={events.map(e => ({ time: e.time.toISOString(), message: e.message, level: e.level }))}
+          />
+        </div>
+
+        <div className="mt-6 flex items-center justify-between gap-3 flex-wrap">
+          {/* AI Incident Analysis button */}
+          <AIIncidentPanel
+            zones={zones}
+            location={location}
+            events={events.map(e => ({ time: e.time.toISOString(), message: e.message, level: e.level }))}
+            overall={overall}
+            power={power}
+          />
+
           <button
             type="button"
             onClick={() => placeCall("Manual call")}
@@ -1021,9 +1059,18 @@ function App() {
         </div>
 
         <div className="mt-6 pt-6 border-t border-white/10 text-xs text-slate-500 text-center">
-          {dateString}
+          {dateString} · <span className="text-violet-500">FireGuard AI — Powered by Google Gemini</span>
         </div>
       </div>
+
+      {/* Floating AI Chatbot */}
+      <AIChatbot
+        zones={zones}
+        location={location}
+        events={events.map(e => ({ time: e.time.toISOString(), message: e.message, level: e.level }))}
+        overall={overall}
+        power={power}
+      />
 
       {callState !== "idle" && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-6">
